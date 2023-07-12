@@ -14,18 +14,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color.Companion.White
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
-import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.GlideImage
 import com.rayviss.gofootball.R
+import com.rayviss.gofootball.data.models.allLeaguesResponse.AllLeaguesModel
 import com.rayviss.gofootball.data.models.allLeaguesResponse.Data
 import com.rayviss.gofootball.navigation.Screen
-import com.rayviss.gofootball.ui.theme.*
+import com.rayviss.gofootball.ui.theme.Green200
+import com.rayviss.gofootball.ui.theme.Green700
+import com.rayviss.gofootball.ui.theme.White10
+import com.rayviss.gofootball.ui.theme.White50
 import com.rayviss.gofootball.ui.viewmodels.MainViewModel
 
 
@@ -39,16 +39,9 @@ fun LeaguesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(id = R.string.leagues_title),
-                        color = White
-                    )
-                },
+                title = { Text(text = stringResource(id = R.string.leagues_title), color = White) },
                 backgroundColor = Green700,
-                actions = {
-                    ToWebScreen(navController)
-                }
+                actions = { ToWebScreen(navController) }
             )
         },
         content = {
@@ -62,77 +55,47 @@ fun LeaguesScreen(
             {
                 Column(modifier = Modifier.padding(20.dp)) {
                     when (leaguesState) {
-                        is ScreenStateAllLeagues.Empty -> Text(text = "No data available")
-
-                        is ScreenStateAllLeagues.Loading -> {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(20.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator()
-                                Text(text = "Loading...")
-                            }
-                        }
-
-                        is ScreenStateAllLeagues.Success -> {
-                            ShowListWithLeagues(
-                                listLeague = leaguesState.allLeaguesModel.data,
-                                navController
+                        is ScreenState.Empty -> Text(stringResource(R.string.no_data_available))
+                        is ScreenState.Loading -> LoadingState()
+                        is ScreenState.Error -> ErrorState(message = leaguesState.message)
+                        is ScreenState.Success<AllLeaguesModel> -> {
+                            ShowLeaguesList(
+                                listLeague = leaguesState.data.data,
+                                navController = navController
                             )
-                        }
-
-                        is ScreenStateAllLeagues.Error -> {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(20.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(text = leaguesState.message)
-                            }
                         }
                     }
                 }
             }
         }
     )
+}
 
-    @OptIn(ExperimentalGlideComposeApi::class)
-    @Composable
-    fun LeagueCard(league: com.rayviss.gofootball.data.models.allLeaguesResponse.Data) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                // Отображаем название лиги
-                Text(text = league.name, style = TextStyle(fontSize = 18.sp))
-
-                // Загружаем и отображаем логотип лиги с помощью Glide или Coil
-                // Пример с Glide:
-                GlideImage(
-                    model = league.cc,
-                    contentDescription = "Логотип лиги",
-                    modifier = Modifier
-                        .size(80.dp)
-                        .padding(top = 8.dp)
+@Composable
+fun ShowLeaguesList(listLeague: List<Data>, navController: NavHostController) {
+    LazyColumn(
+        modifier = Modifier.padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        items(listLeague.size) {
+            LeagueItemCard(league = listLeague[it], onClickDetailLeague = { leagueId ->
+                navController.navigate(
+                    Screen.LeagueDetailsScreen.route.replace(
+                        "{leagueId}",
+                        leagueId
+                    )
                 )
-            }
+            })
+            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 }
 
-
 @Composable
-fun LeagueItem(
+fun LeagueItemCard(
     league: Data,
-    onClickDetailLeague: (String) -> Unit
+    onClickDetailLeague: (String) -> Unit = {}
 ) {
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -157,35 +120,36 @@ fun LeagueItem(
                 style = MaterialTheme.typography.h4,
                 color = White50
             )
-
         }
     }
 }
-
 
 @Composable
-fun ShowListWithLeagues(listLeague: List<Data>, navController: NavHostController) {
-
-    LazyColumn(
-        modifier = Modifier.padding(20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-
+fun ModifierBoxState(content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp),
+        contentAlignment = Alignment.Center
     ) {
-        items(listLeague.size) {
-            LeagueItem(league = listLeague[it], onClickDetailLeague = { leagueId ->
-                navController.navigate(
-                    Screen.LeagueDetailsScreen.route.replace(
-                        "{leagueId}",
-                        leagueId
-                    )
-                )
-            })
-            Spacer(modifier = Modifier.height(20.dp))
-        }
+        content()
     }
 }
 
+@Composable
+fun ErrorState(message: String) {
+    ModifierBoxState {
+        Text(text = message)
+    }
+}
+
+@Composable
+fun LoadingState() {
+    ModifierBoxState {
+        CircularProgressIndicator()
+        Text(text = stringResource(id = R.string.loading))
+    }
+}
 
 @Composable
 fun ToWebScreen(navController: NavHostController) {
@@ -199,3 +163,4 @@ fun ToWebScreen(navController: NavHostController) {
         )
     }
 }
+

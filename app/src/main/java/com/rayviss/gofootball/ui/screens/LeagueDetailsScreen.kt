@@ -1,8 +1,8 @@
 package com.rayviss.gofootball.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Card
 import androidx.compose.material.CircularProgressIndicator
@@ -17,23 +17,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavController
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
-import com.rayviss.gofootball.data.models.allLeaguesResponse.Data
-import com.rayviss.gofootball.ui.theme.Green200
-import com.rayviss.gofootball.ui.theme.White50
+import com.rayviss.gofootball.data.models.leaguesResponse.Data
+import com.rayviss.gofootball.data.models.leaguesResponse.LeaguesModel
+import com.rayviss.gofootball.data.models.teamsResponse.TeamsModel
 import com.rayviss.gofootball.ui.viewmodels.MainViewModel
 
-
-@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun LeagueDetailsScreen(
-    navController: NavController,
     leagueId: String,
     viewModel: MainViewModel = hiltViewModel()
 ) {
-
     val leagueDetailsState = viewModel.leagueDetailsState.collectAsState().value
     val teamsState = viewModel.teamsState.collectAsState().value
 
@@ -42,120 +37,97 @@ fun LeagueDetailsScreen(
         viewModel.getLeagueById(leagueId)
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
-            .fillMaxSize()
             .padding(20.dp)
+            .fillMaxSize()
     ) {
         when (leagueDetailsState) {
-            is ScreenStateLeagueDetails.Empty -> Text(text = "No data available")
-
-            is ScreenStateLeagueDetails.Loading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                    Text(text = "Loading...")
-                }
+            is ScreenState.Empty -> Text(text = "No data available")
+            is ScreenState.Loading -> {
+                LoadingContent()
             }
-
-            is ScreenStateLeagueDetails.Success -> {
-                val league = leagueDetailsState.leaguesModel.data.first()
+            is ScreenState.Error -> {
+                ErrorContent(message = leagueDetailsState.message)
+            }
+            is ScreenState.Success<LeaguesModel> -> {
+                val league = leagueDetailsState.data.data.first()
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                 ) {
-                    GlideImage(
-                        model = league.img,
-                        contentDescription = "League Logo",
-                        modifier = Modifier
-                            .size(200.dp)
-                            .padding(bottom = 20.dp)
-                            .align(Alignment.CenterHorizontally)
-                    )
-                    Text(text = league.name, style = MaterialTheme.typography.h5)
-                    Text(text = league.continent.name)
-                    Text(text = league.country.name)
-                    Text(text = league.seasons.first().name)
+                    LeagueHeader(league = league)
                     Spacer(modifier = Modifier.height(20.dp))
-
-                    Text(
-                        text = "Teams",
-                        style = MaterialTheme.typography.h6,
-                        fontWeight = FontWeight.Bold
+                    TeamsSection(
+                        leagueId = league.id_current_season,
+                        viewModel = viewModel,
+                        teamsState = teamsState
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    viewModel.getTeamsBySeasonId(league.id_current_season)
-                    when (teamsState) {
-                        is ScreenStateTeams.Empty -> Text(text = "No data available")
-
-                        is ScreenStateTeams.Loading -> {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator()
-                                Text(text = "Loading...")
-                            }
-                        }
-
-                        is ScreenStateTeams.Success -> {
-                            val teams = teamsState.teamsModel.data
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                            ) {
-
-                                LazyColumn(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    items(teams.size) {
-                                        TeamItem(team = teams[it])
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                    }
-                                }
-                            }
-                        }
-
-                        is ScreenStateTeams.Error -> {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(text = teamsState.message)
-                            }
-                        }
-                    }
-
-
-                }
-            }
-
-            is ScreenStateLeagueDetails.Error -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = leagueDetailsState.message)
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalGlideComposeApi::class)
+@Composable
+fun LeagueHeader(league: Data) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(horizontal = 20.dp)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center
+        ) {
+            GlideImage(
+                model = league.img,
+                contentDescription = "League Logo",
+                modifier = Modifier
+                    .size(200.dp)
+                    .padding(end = 20.dp)
+            )
+        }
+        Column {
+            Text(text = league.name, style = MaterialTheme.typography.h5)
+            Text(text = league.continent.name)
+            Text(text = league.country.name)
+            Text(text = league.seasons.first().name)
+        }
+    }
+}
 
 @Composable
-fun TeamItem(
-    team: com.rayviss.gofootball.data.models.teamsResponse.Data,
+fun TeamsSection(
+    leagueId: String,
+    viewModel: MainViewModel,
+    teamsState: ScreenState<TeamsModel>
 ) {
+    viewModel.getTeamsBySeasonId(leagueId)
+    when (teamsState) {
+        is ScreenState.Empty -> Text(text = "No data available")
+        is ScreenState.Loading -> {
+            LoadingContent()
+        }
+        is ScreenState.Error -> {
+            ErrorContent(message = teamsState.message)
+        }
+        is ScreenState.Success<TeamsModel> -> {
+            val teams = teamsState.data.data
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.Start
+            ) {
+                items(teams) { team ->
+                    TeamItem(team = team)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TeamItem(team: com.rayviss.gofootball.data.models.teamsResponse.Data) {
     Card(
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier
@@ -163,9 +135,9 @@ fun TeamItem(
             .height(70.dp),
         backgroundColor = Color.White,
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
         ) {
             Text(
                 text = team.name,
@@ -174,5 +146,28 @@ fun TeamItem(
                 color = Color.Black
             )
         }
+    }
+}
+
+@Composable
+fun LoadingContent() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator()
+            Text(text = "Loading...")
+        }
+    }
+}
+
+@Composable
+fun ErrorContent(message: String) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text = message)
     }
 }

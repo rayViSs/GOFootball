@@ -1,11 +1,13 @@
 package com.rayviss.gofootball.ui.viewmodels
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rayviss.gofootball.data.models.allLeaguesResponse.AllLeaguesModel
+import com.rayviss.gofootball.data.models.leaguesResponse.LeaguesModel
+import com.rayviss.gofootball.data.models.teamsResponse.TeamsModel
 import com.rayviss.gofootball.domain.usecases.UseCase
-import com.rayviss.gofootball.ui.screens.ScreenStateAllLeagues
-import com.rayviss.gofootball.ui.screens.ScreenStateLeagueDetails
-import com.rayviss.gofootball.ui.screens.ScreenStateTeams
+import com.rayviss.gofootball.ui.screens.ScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,28 +21,30 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(
     private val useCase: UseCase
 ) : ViewModel() {
-    private val _leaguesState = MutableStateFlow<ScreenStateAllLeagues>(ScreenStateAllLeagues.Empty)
-    val leaguesState: StateFlow<ScreenStateAllLeagues> = _leaguesState
 
-    private val _leagueDetailsState = MutableStateFlow<ScreenStateLeagueDetails>(ScreenStateLeagueDetails.Empty)
-    val leagueDetailsState: StateFlow<ScreenStateLeagueDetails> = _leagueDetailsState
+    private val _leaguesState = MutableStateFlow<ScreenState<AllLeaguesModel>>(ScreenState.Empty)
+    val leaguesState: StateFlow<ScreenState<AllLeaguesModel>> = _leaguesState
 
-    private val _teamsState = MutableStateFlow<ScreenStateTeams>(ScreenStateTeams.Empty)
-    val teamsState: StateFlow<ScreenStateTeams> = _teamsState
+    private val _leagueDetailsState = MutableStateFlow<ScreenState<LeaguesModel>>(ScreenState.Empty)
+    val leagueDetailsState: StateFlow<ScreenState<LeaguesModel>> = _leagueDetailsState
+
+    private val _teamsState = MutableStateFlow<ScreenState<TeamsModel>>(ScreenState.Empty)
+    val teamsState: StateFlow<ScreenState<TeamsModel>> = _teamsState
+
 
     init {
         getAllLeagues()
     }
 
+
     private fun getAllLeagues() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val leagues = useCase.getAllLeaguesUseCase.invoke()
-                _leaguesState.value = ScreenStateAllLeagues.Success(leagues)
-            } catch (e: HttpException) {
-                _leaguesState.value = ScreenStateAllLeagues.Error("internet issue")
-            } catch (e: IOException) {
-                _leaguesState.value = ScreenStateAllLeagues.Error("something wrong")
+                _leaguesState.value = ScreenState.Success(leagues)
+            } catch (e: Throwable) {
+                Log.d("ERR", e.toString())
+                _leaguesState.value = handleException(e)
             }
         }
     }
@@ -49,11 +53,10 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val league = useCase.getLeaguesByIdsUseCase.invoke(leagueId)
-                _leagueDetailsState.value = ScreenStateLeagueDetails.Success(league)
-            } catch (e: HttpException) {
-                _leagueDetailsState.value = ScreenStateLeagueDetails.Error("Internet issue")
-            } catch (e: IOException) {
-                _leagueDetailsState.value = ScreenStateLeagueDetails.Error("Something went wrong")
+                _leagueDetailsState.value = ScreenState.Success(league)
+            } catch (e: Throwable) {
+                Log.d("ERR", e.toString())
+                _leagueDetailsState.value = handleException(e)
             }
         }
     }
@@ -62,12 +65,19 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val teams = useCase.getTeamsBySeasonIdUseCase.invoke(seasonId)
-                _teamsState.value = ScreenStateTeams.Success(teams)
-            } catch (e: HttpException) {
-                _teamsState.value = ScreenStateTeams.Error("Internet issue")
-            } catch (e: IOException) {
-                _teamsState.value = ScreenStateTeams.Error("Something went wrong")
+                _teamsState.value = ScreenState.Success(teams)
+            } catch (e: Throwable) {
+                _teamsState.value = handleException(e)
             }
+        }
+    }
+
+
+
+    private fun handleException(throwable: Throwable): ScreenState<Nothing> {
+        return when (throwable) {
+            is HttpException, is IOException -> ScreenState.Error("Internet issue")
+            else -> ScreenState.Error("Unknown error")
         }
     }
 }

@@ -24,7 +24,7 @@ fun Navigation() {
         composable(Screen.LeagueDetailsScreen.route) { backStackEntry ->
             val leagueId = backStackEntry.arguments?.getString("leagueId")
             if (leagueId != null) {
-                LeagueDetailsScreen(navController, leagueId = leagueId)
+                LeagueDetailsScreen(leagueId = leagueId)
             }
         }
         composable(Screen.WebScreen.route) {

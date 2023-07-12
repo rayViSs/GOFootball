@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">GO Football</string>
     <string name="leagues_title">Available Leagues</string>
+    <string name="no_data_available">No data available</string>
+    <string name="loading">Loading…</string>
+    <string name="internet_issue">internet issue</string>
+    <string name="something_wrong">something wrong</string>
 </resources>
